@@ -6,7 +6,7 @@ CSC 667 Term Project — Spring 2026
 
 | Name | GitHub | Email |
 |------|--------|-------|
-| Member 1 | @username | email@sfsu.edu |
+| Zhao Jing| Jz124432287 | zjing@sfsu.edu |
 | Member 2 | @username | email@sfsu.edu |
 | Member 3 | @username | email@sfsu.edu |
 | Member 4 | @username | email@sfsu.edu |
