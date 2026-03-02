@@ -15,18 +15,14 @@ app.use(express.urlencoded({extended: true}));
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 
-app.use((request, _response, next) => {
-    console.log(`${new Date().toUTCString()} - ${request.method} ${request.path}`);
-    next();
+
+app.get("/", (_request, response) => {
+    response.send("Hello World!");
 });
 
 app.use(loggingMiddleware);
 
 app.use("/", homeRoutes);
-
-app.get("/", (_request, response) => {
-    response.send("Hello World!");
-});
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${String(PORT)} at ${new Date().toLocaleTimeString()}`);
