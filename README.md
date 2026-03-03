@@ -8,7 +8,7 @@ CSC 667 Term Project — Spring 2026
 |------|--------|-------|
 | Zhao Jing| @Jz124432287 | zjing@sfsu.edu |
 | Manci Raj | @username | email@sfsu.edu |
-| Laura Wong| @username | email@sfsu.edu |
+| Laura Wong| @slibie | lwong25@sfsu.edu |
 | Felix-James Okugbe | @Yehurek | fokugbe@sfsu.edu |
 
 ## Setup
