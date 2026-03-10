@@ -1,27 +1,26 @@
+import "dotenv/config";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 
 import homeRoutes from "./routes/home.js";
-import testRoutes from "./routes/test.js";
+import testRoutes from "./routes/dbTest.js";
 import loggingMiddleware from "./middleware/logging.js";
 
 const app = express();
+app.use(loggingMiddleware);
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 app.use(express.json());
-app.use(express.urlencoded({extended: true}));
+app.use(express.urlencoded({ extended: true }));
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 
-
 app.get("/", (_request, response) => {
-    response.send("Hello World!");
+  response.send("Hello World!");
 });
-
-app.use(loggingMiddleware);
 
 app.use("/", homeRoutes);
 app.use("/test", testRoutes);
