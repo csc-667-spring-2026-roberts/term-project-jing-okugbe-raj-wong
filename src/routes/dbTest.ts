@@ -38,7 +38,7 @@ router.post("/test-messages", async (req, res, next) => {
     }
 
     const inserted = await db.one(
-      "INSERT INTO test_messages(message) VALUES($1) RETURNING id, message, created_at",
+      "INSERT INTO test_table (message) VALUES($1) RETURNING id, message, created_at",
       [message.trim()],
     );
 
