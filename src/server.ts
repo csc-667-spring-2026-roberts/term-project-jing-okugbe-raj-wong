@@ -2,10 +2,13 @@ import "dotenv/config";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
+import connectPgSimple from "connect-pg-simple";
+import session from "express-session"; 
 
 import homeRoutes from "./routes/home.js";
 import testRoutes from "./routes/dbTest.js";
 import loggingMiddleware from "./middleware/logging.js";
+import { db } from "./db/connection.js";
 
 const app = express();
 app.use(loggingMiddleware);
@@ -13,10 +16,27 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const PgSession = connectPgSimple(session);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(express.static(path.join(__dirname, "..", "public")));
+
+app.use(
+  session({
+    store: new PgSession({ pgPromise: db }),
+    secret: process.env.SESSION_SECRET || "dev-secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.Node_ENV === "production",
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000
+    }
+  })
+);
 
 app.get("/", (_request, response) => {
   response.send("Hello World!");
