@@ -11,12 +11,13 @@ import loggingMiddleware from "./middleware/logging.js";
 import { db } from "./db/connection.js";
 
 const app = express();
-app.use(loggingMiddleware);
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const PgSession = connectPgSimple(session);
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "..", "views"));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -38,10 +39,7 @@ app.use(
   })
 );
 
-app.get("/", (_request, response) => {
-  response.send("Hello World!");
-});
-
+app.use(loggingMiddleware);
 app.use("/", homeRoutes);
 app.use("/test", testRoutes);
 
