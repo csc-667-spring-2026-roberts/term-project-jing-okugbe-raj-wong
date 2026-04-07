@@ -54,23 +54,39 @@ router.post("/register", async (request, response) => {
 })
 
 router.post("/login", async (request, response) => {
-    const {email, password} = request.body;
+    const { email, password } = request.body;
 
     if (!email || !password) {
-        response.status(400).json({error: "Email and password required"});
+        response.status(400).json({ error: "Email and password required" });
         return;
     }
 
     try {
         const user = await Users.findByEmail(email);
+
+        if (!user) {
+            response.status(401).json({ error: "Invalid email or password" });
+            return;
+        }
+
         const isMatch = await bcrypt.compare(password, user.password_hash);
 
+        if (!isMatch) {
+            response.status(401).json({ error: "Invalid email or password" });
+            return;
+        }
+
+        request.session.user = user;
+
+        response.status(200).json({
+            ok: true,
+            user
+        });
     } catch (error) {
         console.error("Login error: ", error);
-        response.status(500).json({ error: "Invalid email or password" });
+        response.status(500).json({ error: "Login failed" });
     }
-
-})
+});
 
 
 export default router;

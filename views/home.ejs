@@ -1,14 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Home</title>
-</head>
-<body>
-  <h1>Home Page</h1>
-  <p>This is the home page.</p>
+<%- include("partials/header", { title: "Home" }) %>
 
-  <p><a href="/login">Go to Login</a></p>
-  <p><a href="/register">Go to Register</a></p>
-</body>
-</html>
+<h1>Home Page</h1>
+<p>This is the home page.</p>
+
+<p><a href="/login">Go to Login</a></p>
+<p><a href="/register">Go to Register</a></p>
+<p><a href="/lobby">Go to Lobby</a></p>
+
+<%- include("partials/footer") %>
