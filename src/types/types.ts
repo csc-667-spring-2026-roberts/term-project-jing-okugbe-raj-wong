@@ -7,5 +7,4 @@ export interface User {
 
 export interface DbUser extends User {
     password_hash: string;
-
 }

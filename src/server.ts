@@ -4,9 +4,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import connectPgSimple from "connect-pg-simple";
 import session from "express-session"; 
+
 import authRoutes from "./routes/auth.js";
 import playerRoutes from "./routes/players.js";
-
 import homeRoutes from "./routes/home.js";
 import testRoutes from "./routes/dbTest.js";
 import loggingMiddleware from "./middleware/logging.js";
@@ -42,6 +42,7 @@ app.use(
 );
 
 app.use(loggingMiddleware);
+
 app.use("/auth", authRoutes);
 app.use("/players", playerRoutes);
 app.use("/", homeRoutes);

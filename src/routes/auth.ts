@@ -2,6 +2,7 @@ import { Router } from "express";
 import crypto from "crypto";
 import Users from "../db/users.js";
 import bcrypt from "bcrypt";
+import { TypedRequestBody, UserLoginRequestBody } from "../types/types.js";
 
 const router = Router();
 
@@ -17,7 +18,7 @@ function gravatarURL(email: string): string {
 }
 
 
-router.post("/register", async (request, response) => {
+router.post("/register", async (request: TypedRequestBody<UserLoginRequestBody>, response) => {
     const {email, password} = request.body;
 
     if (!email || !password) {
@@ -53,8 +54,8 @@ router.post("/register", async (request, response) => {
     }
 })
 
-router.post("/login", async (request, response) => {
-    const { email, password } = request.body;
+router.post("/login", async (request: TypedRequestBody<UserLoginRequestBody>, response) => {
+    const { email, password } = request.body as { email?: string, password?: string};
 
     if (!email || !password) {
         response.status(400).json({ error: "Email and password required" });
@@ -62,31 +63,41 @@ router.post("/login", async (request, response) => {
     }
 
     try {
-        const user = await Users.findByEmail(email);
-
-        if (!user) {
-            response.status(401).json({ error: "Invalid email or password" });
-            return;
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password_hash);
+        const dbUser = await Users.findByEmail(email);
+        const isMatch = await bcrypt.compare(password, dbUser.password_hash);
 
         if (!isMatch) {
-            response.status(401).json({ error: "Invalid email or password" });
-            return;
+            throw new Error (`Match not found for ${email}`);
+        }
+
+        const user = {
+            id: dbUser.id,
+            email: dbUser.email,
+            gravatar_url: dbUser.gravatar_url,
+            created_at: dbUser.created_at
         }
 
         request.session.user = user;
 
-        response.status(200).json({
-            ok: true,
-            user
-        });
+        response.json(user);
     } catch (error) {
         console.error("Login error: ", error);
-        response.status(500).json({ error: "Login failed" });
+        response.status(500).json({ error: "Invalid email or password" });
     }
-});
+})
+
+router.post("/logout", (request, response) => {
+    request.session.destroy(error => {
+        if (error) {
+            console.error("Logout error: ", error);
+            response.status(500).json({ error: "Logout failed" });
+            return;
+        }
+
+        response.clearCookie("connect.sid");
+        response.json({ message: "Logged out successfully" });
+    })
+})
 
 
 export default router;
