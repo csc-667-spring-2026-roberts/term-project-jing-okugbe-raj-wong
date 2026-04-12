@@ -10,55 +10,59 @@ const SALT_ROUNDS = 10;
 
 function gravatarURL(email: string): string {
     const hash = crypto
-    .createHash("md5")
-    .update(email.trim().toLowerCase())
-    .digest("hex");
+        .createHash("md5")
+        .update(email.trim().toLowerCase())
+        .digest("hex");
 
     return `https://www.gravatar.com/avatar/${hash}?d=identicon`;
 }
 
+router.get("/register", (_request, response) => {
+    response.render("auth/register");
+})
 
 router.post("/register", async (request: TypedRequestBody<UserLoginRequestBody>, response) => {
-    const {email, password} = request.body;
+    const { email, password } = request.body;
 
     if (!email || !password) {
-        response.status(400).json({error: "Email and password required"});
+        response.render("auth/register", { error: "Email and password required" });
         return;
     }
 
     if (password.length < 8) {
-        response.status(400).json({error: "Password must be at least 8 characters"});
+        response.render("auth/register", { error: "Password must be at least 8 characters" });
         return;
     }
 
     try {
         if (await Users.existing(email)) {
-            response.status(409).json({error: "Email already registered"});
+            response.render("auth/register", { error: "Email already registered" });
             return;
         }
 
-    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    const avatar = gravatarURL(email);
+        const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+        const avatar = gravatarURL(email);
 
-    const user = await Users.create(email, passwordHash, avatar);
+        const user = await Users.create(email, passwordHash, avatar);
 
-    request.session.user = user;
+        request.session.user = user;
 
-    response.status(201).json({
-        ...user
-    });
-
+        response.redirect("/lobby");
     } catch (error) {
         console.error("Registration error: ", error);
-        response.status(500).json({ error: "Resgistration failed"});
+        response.render("auth/register", { error: "Registration failed" });
     }
 })
 
+router.get("/login", (_request, response) => {
+    response.render("auth/login");
+})
+
 router.post("/login", async (request: TypedRequestBody<UserLoginRequestBody>, response) => {
-    const { email, password } = request.body as { email?: string, password?: string};
+    const { email, password } = request.body as { email?: string, password?: string };
 
     if (!email || !password) {
-        response.status(400).json({ error: "Email and password required" });
+        response.render("auth/login", { error: "Email and password required" });
         return;
     }
 
@@ -67,7 +71,7 @@ router.post("/login", async (request: TypedRequestBody<UserLoginRequestBody>, re
         const isMatch = await bcrypt.compare(password, dbUser.password_hash);
 
         if (!isMatch) {
-            throw new Error (`Match not found for ${email}`);
+            throw new Error(`Match not found for ${email}`);
         }
 
         const user = {
@@ -79,25 +83,23 @@ router.post("/login", async (request: TypedRequestBody<UserLoginRequestBody>, re
 
         request.session.user = user;
 
-        response.json(user);
+        response.redirect("/lobby");
     } catch (error) {
         console.error("Login error: ", error);
-        response.status(500).json({ error: "Invalid email or password" });
+        response.render("auth/login", { error: "Invalid email or password" });
     }
-})
+});
 
 router.post("/logout", (request, response) => {
     request.session.destroy(error => {
         if (error) {
-            console.error("Logout error: ", error);
-            response.status(500).json({ error: "Logout failed" });
-            return;
+            console.error("Logout error: ", error);   
         }
 
         response.clearCookie("connect.sid");
-        response.json({ message: "Logged out successfully" });
-    })
-})
+        response.redirect("/auth/login");
+    });
+});
 
 
 export default router;

@@ -2,8 +2,12 @@ import { Router } from "express";
 
 const router = Router();
 
-router.get("/", (_request, response) => {
-  response.render("home");
+router.get("/", (request, response) => {
+  if(request.session.user?.id) {
+  response.redirect("/lobby");
+  } else {
+    response.redirect("/auth/login");
+  }
 });
 
 router.get("/login", (_request, response) => {

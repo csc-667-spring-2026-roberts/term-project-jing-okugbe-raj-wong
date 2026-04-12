@@ -9,6 +9,7 @@ import authRoutes from "./routes/auth.js";
 import playerRoutes from "./routes/players.js";
 import homeRoutes from "./routes/home.js";
 import testRoutes from "./routes/dbTest.js";
+import lobbyRoutes from "./routes/lobby.js";
 import loggingMiddleware from "./middleware/logging.js";
 import { db } from "./db/connection.js";
 
@@ -25,6 +26,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(express.static(path.join(__dirname, "..", "public")));
+
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "..", "views"));
 
 app.use(
   session({
@@ -47,6 +51,7 @@ app.use("/auth", authRoutes);
 app.use("/players", playerRoutes);
 app.use("/", homeRoutes);
 app.use("/test", testRoutes);
+app.use("/lobby", lobbyRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${String(PORT)} at ${new Date().toLocaleTimeString()}`);
