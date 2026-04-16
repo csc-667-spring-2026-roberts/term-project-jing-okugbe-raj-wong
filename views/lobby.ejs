@@ -8,28 +8,31 @@
         <%= typeof title !=="undefined" ? title : "Scrabble" %>
     </title>
     <link rel="stylesheet" href="/css/home.css">
+    <script src="/js/lobby.js" defer></script>
 </head>
 
 <body>
-<nav> 
-    <a href="/">Home</a>
-    <% if(typeof user !== "undefined" && user) { %>
-        <span>Welcome, <%= user.email %>!</span>
-        <form action="/auth/logout" method="POST">
-            <button type="submit">Logout</button>
-        </form>
-    <% } else { %> 
-        <a href="/auth/login">Login</a>
-        <a href="/auth/register">Register</a>
-    <% } %>
-</nav>
+    <nav>
+        <a href="/">Home</a>
+        <% if(typeof user !=="undefined" && user) { %>
+            <span>Welcome, <%= user.email %>!</span>
+            <form action="/auth/logout" method="POST">
+                <button type="submit">Logout</button>
+            </form>
+            <% } else { %>
+                <a href="/auth/login">Login</a>
+                <a href="/auth/register">Register</a>
+                <% } %>
+    </nav>
 
-<main>
-    <% if(typeof error !== "undefined" && error) { %>
-        <div class="error"><%= error %></div>
-    <% } %>
-    <h2>Lobby</h2>
-</main>
+    <main>
+        <% if(typeof error !=="undefined" && error) { %>
+            <div class="error">
+                <%= error %>
+            </div>
+            <% } %>
+                <h2>Lobby</h2>
+    </main>
 
 </body>
 
