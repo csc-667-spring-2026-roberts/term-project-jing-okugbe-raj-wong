@@ -3,9 +3,10 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import connectPgSimple from "connect-pg-simple";
-import session from "express-session"; 
+import session from "express-session";
 import livereload from "livereload";
 import connectLiveReload from "connect-livereload";
+import sseRoutes from "./routes/sse.js";
 
 import authRoutes from "./routes/auth.js";
 import playerRoutes from "./routes/players.js";
@@ -26,7 +27,7 @@ if (process.env.Node_ENV !== "production") {
   liveReloadServer.watch([
     path.join(__dirname, "..", "public"),
     path.join(__dirname, "..", "views"),
-  ])
+  ]);
 
   app.use(connectLiveReload());
 }
@@ -53,15 +54,16 @@ app.use(
       secure: process.env.Node_ENV === "production",
       httpOnly: true,
       sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000
-    }
-  })
+      maxAge: 24 * 60 * 60 * 1000,
+    },
+  }),
 );
 
 app.use(loggingMiddleware);
 
 app.use("/auth", authRoutes);
 app.use("/players", playerRoutes);
+app.use("/api", sseRoutes);
 app.use("/", homeRoutes);
 app.use("/test", testRoutes);
 app.use("/lobby", lobbyRoutes);

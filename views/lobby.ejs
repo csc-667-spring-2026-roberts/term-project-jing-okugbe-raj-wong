@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>
-        <%= typeof title !=="undefined" ? title : "Scrabble" %>
+        <%= typeof title !== "undefined" ? title : "Scrabble" %>
     </title>
     <link rel="stylesheet" href="/css/home.css">
     <script src="/js/lobby.js" defer></script>
@@ -14,24 +14,49 @@
 <body>
     <nav>
         <a href="/">Home</a>
-        <% if(typeof user !=="undefined" && user) { %>
+        <% if (typeof user !== "undefined" && user) { %>
             <span>Welcome, <%= user.email %>!</span>
             <form action="/auth/logout" method="POST">
                 <button type="submit">Logout</button>
             </form>
-            <% } else { %>
-                <a href="/auth/login">Login</a>
-                <a href="/auth/register">Register</a>
-                <% } %>
+        <% } else { %>
+            <a href="/auth/login">Login</a>
+            <a href="/auth/register">Register</a>
+        <% } %>
     </nav>
 
     <main>
-        <% if(typeof error !=="undefined" && error) { %>
+        <% if (typeof error !== "undefined" && error) { %>
             <div class="error">
                 <%= error %>
             </div>
-            <% } %>
-                <h2>Lobby</h2>
+        <% } %>
+
+        <h2>Lobby</h2>
+        <p>This page demonstrates client-side TypeScript, fetch, and template-based DOM updates.</p>
+
+        <section>
+            <h3>Add Player</h3>
+            <form id="player-form">
+                <label for="display-name">Player Name</label>
+                <input id="display-name" name="display_name" type="text" required>
+                <button type="submit">Add Player</button>
+            </form>
+            <p id="status-message"></p>
+        </section>
+
+        <section>
+            <h3>Players</h3>
+            <ul id="player-list"></ul>
+        </section>
+
+        <template id="player-template">
+            <li class="player-item">
+                <strong class="player-name"></strong>
+                <span> - joined at </span>
+                <span class="player-created-at"></span>
+            </li>
+        </template>
     </main>
 
 </body>
