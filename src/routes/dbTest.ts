@@ -11,12 +11,12 @@ Quick test query to show connection works.
 
  */
 
-router.get("/ping", async (_req, res, next) => {
+router.get("/ping", async (_request, response, next) => {
   try {
     const result = await db.one("SELECT 1 AS ok");
-    res.json({ ok: true, result });
-  } catch (err) {
-    next(err);
+    response.json({ ok: true, result });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -28,24 +28,23 @@ Inserts into test_messages table and returns inserted row.
 
  */
 
-router.post("/test-messages", async (req, res, next) => {
+router.post("/test-messages", async (request, response, next) => {
   try {
-    const { message } = req.body;
+    const { message } = request.body;
 
     if (typeof message !== "string" || message.trim() === "") {
-      res.status(400).json({ ok: false, error: "message is required" });
+      response.status(400).json({ ok: false, error: "message is required" });
       return;
     }
 
     const inserted = await db.one(
-      "INSERT INTO test_table (message) VALUES($1) RETURNING id, message, created_at",
+      "INSERT INTO test_messages (message) VALUES($1) RETURNING id, message, created_at",
       [message.trim()],
     );
 
-    res.status(201).json({ ok: true, inserted });
-    return; // optional, but satisfies “all code paths”
-  } catch (err) {
-    next(err);
+    response.status(201).json({ ok: true, inserted });
+  } catch (error) {
+    next(error);
   }
 });
 /*
@@ -54,14 +53,15 @@ GET MESSAGES;
 Returns the 50 most recent messages from test_messages table.
 
  */
-router.get("/test-messages", async (_req, res, next) => {
+router.get("/test-messages", async (_request, response, next) => {
   try {
     const rows = await db.any(
       "SELECT id, message, created_at FROM test_messages ORDER BY id DESC LIMIT 50",
     );
-    res.json({ ok: true, rows });
-  } catch (err) {
-    next(err);
+
+    response.json({ ok: true, rows });
+  } catch (error) {
+    next(error);
   }
 });
 

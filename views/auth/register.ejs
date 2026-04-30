@@ -2,18 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Login</title>
+  <title>Register</title>
 </head>
 <body>
-  <h1>Login Page</h1>
+  <h1>Register Page</h1>
 
   <% if (typeof error !== "undefined" && error) { %>
-        <div class="error">
-          <%= error %>
-        </div>
-    <% } %>
+    <div class="error">
+      <%= error %>
+    </div>
+  <% } %>
 
-  <form action="auth/login" method="POST">
+  <form action="/auth/register" method="POST">
     <div>
       <label for="email">Email:</label>
       <input type="email" id="email" name="email" required />
@@ -28,10 +28,10 @@
 
     <br />
 
-    <button type="submit">Login</button>
+    <button type="submit">Register</button>
   </form>
 
-  <p><a href="auth/register">Go to Register</a></p>
+  <p><a href="/auth/login">Go to Login</a></p>
   <p><a href="/">Back to Home</a></p>
 </body>
 </html>

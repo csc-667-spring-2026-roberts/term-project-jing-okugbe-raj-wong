@@ -21,7 +21,7 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-if (process.env.Node_ENV !== "production") {
+if (process.env.NODE_ENV !== "production") {
   const liveReloadServer = livereload.createServer({ exts: ["ejs", "css", "js"] });
 
   liveReloadServer.watch([
@@ -51,7 +51,7 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.Node_ENV === "production",
+      secure: process.env.NODE_ENV === "production",
       httpOnly: true,
       sameSite: "lax",
       maxAge: 24 * 60 * 60 * 1000,
