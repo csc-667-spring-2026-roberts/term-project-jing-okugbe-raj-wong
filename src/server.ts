@@ -7,7 +7,7 @@ import session from "express-session";
 import livereload from "livereload";
 import connectLiveReload from "connect-livereload";
 import sseRoutes from "./routes/sse.js";
-
+import gameRoutes from "./routes/games.js";
 import authRoutes from "./routes/auth.js";
 import playerRoutes from "./routes/players.js";
 import homeRoutes from "./routes/home.js";
@@ -17,6 +17,8 @@ import loggingMiddleware from "./middleware/logging.js";
 import { db } from "./db/connection.js";
 
 const app = express();
+app.set("trust proxy", 1);
+
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -64,6 +66,7 @@ app.use(loggingMiddleware);
 app.use("/auth", authRoutes);
 app.use("/players", playerRoutes);
 app.use("/api", sseRoutes);
+app.use("/games", gameRoutes);
 app.use("/", homeRoutes);
 app.use("/test", testRoutes);
 app.use("/lobby", lobbyRoutes);

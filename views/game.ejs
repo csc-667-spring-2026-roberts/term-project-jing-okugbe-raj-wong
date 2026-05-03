@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scrabble Game</title>
+  <link rel="stylesheet" href="/css/home.css">
+  <script src="/js/game.js" defer></script>
+</head>
+
+<body>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/lobby">Lobby</a>
+
+    <% if (typeof user !== "undefined" && user) { %>
+      <span>Welcome, <%= user.email %>!</span>
+      <form action="/auth/logout" method="POST">
+        <button type="submit">Logout</button>
+      </form>
+    <% } %>
+  </nav>
+
+  <main data-game-id="<%= gameId %>">
+    <h1>Scrabble Game #<%= gameId %></h1>
+
+    <p>
+      Open this same page in another browser or incognito window to test two players.
+    </p>
+
+    <section class="card">
+      <h2>Game Controls</h2>
+
+      <form action="/games/<%= gameId %>/join" method="POST">
+        <button type="submit">Join This Game</button>
+      </form>
+
+      <form action="/games/<%= gameId %>/start" method="POST">
+        <button type="submit">Start Game</button>
+      </form>
+
+      <form action="/games/<%= gameId %>/play" method="POST">
+        <label for="tile">Play one tile</label>
+        <input id="tile" name="tile" maxlength="1" value="A">
+        <button type="submit">Play Tile</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Live Game State</h2>
+      <p id="status-message">Connecting to live updates...</p>
+
+      <h3>Status</h3>
+      <p id="game-status">Waiting</p>
+
+      <h3>Players</h3>
+      <ul id="players-list"></ul>
+
+      <h3>Played Tiles</h3>
+      <ul id="played-tiles-list"></ul>
+    </section>
+  </main>
+</body>
+</html>
