@@ -20,7 +20,8 @@
     "prepare": "husky",
     "migrate": "node-pg-migrate -j ts create",
     "migrate:up": "node-pg-migrate up -j ts",
-    "migrate:down": "node-pg-migrate down -j ts"
+    "migrate:down": "node-pg-migrate down -j ts",
+    "render-build": "npm run build && npm run migrate:up"
   },
   "lint-staged": {
     "src/**/*.ts": [
