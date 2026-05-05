@@ -12,6 +12,7 @@
     "dev": "concurrently -n server,client -c blue,green \"tsx watch src/server.ts\" \"npm run dev:client\"",
     "dev:server": "tsx watch src/server.ts",
     "dev:client": "esbuild src/client/*.ts --bundle --outdir=public/js --sourcemap --watch",
+    "test": "vitest run",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -22,6 +23,7 @@
     "migrate:up": "node-pg-migrate up -j ts",
     "migrate:down": "node-pg-migrate down -j ts",
     "render-build": "npm run build && npm run migrate:up"
+    
   },
   "lint-staged": {
     "src/**/*.ts": [
