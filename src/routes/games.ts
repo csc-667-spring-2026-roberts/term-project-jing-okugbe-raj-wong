@@ -1,122 +1,143 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { broadcastToRoom } from "../sse.js";
+import {
+  createGame,
+  joinGame,
+  startGame,
+  playTile,
+  getGameState,
+  getPlayerRack,
+} from "../db/games.js";
 
 const router = Router();
 
-type DemoGame = {
-  id: number;
-  status: "waiting" | "started";
-  players: string[];
-  playedTiles: string[];
-};
+router.post("/", requireAuth, async (request, response, next) => {
+  try {
+    const user = request.session.user;
+    if (!user) {
+      response.redirect("/auth/login");
+      return;
+    }
+    const game = await createGame(user.id);
 
-const demoGames = new Map<number, DemoGame>();
-let nextGameId = 1;
+    // Tell the lobby a new game appeared
+    broadcastToRoom("lobby", "lobby:game-created", {
+      id: game.id,
+      created_by_email: user.email,
+      status: game.status,
+      created_at: game.created_at,
+    });
 
-router.post("/", requireAuth, (request, response) => {
-  const user = request.session.user;
-
-  if (!user) {
-    response.redirect("/auth/login");
-    return;
+    response.redirect(`/games/${String(game.id)}`);
+  } catch (error) {
+    next(error);
   }
-
-  const game: DemoGame = {
-    id: nextGameId++,
-    status: "waiting",
-    players: [user.email],
-    playedTiles: [],
-  };
-
-  demoGames.set(game.id, game);
-  response.redirect(`/games/${String(game.id)}`);
 });
 
-router.get("/:id", requireAuth, (request, response) => {
-  const gameId = Number(request.params.id);
-  const game = demoGames.get(gameId);
-
-  response.render("game", {
-    user: request.session.user,
-    gameId,
-    game,
-  });
+router.get("/:id", requireAuth, async (request, response, next) => {
+  try {
+    const user = request.session.user;
+    if (!user) {
+      response.redirect("/auth/login");
+      return;
+    }
+    const gameId = Number(request.params.id);
+    const state = await getGameState(gameId);
+    if (!state) {
+      response.redirect("/lobby");
+      return;
+    }
+    const rack = await getPlayerRack(gameId, user.id);
+    const errorMessage =
+      typeof request.query.error === "string" ? request.query.error : null;
+    response.render("game", {
+      user,
+      gameId,
+      game: state,
+      rack,
+      errorMessage,
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.post("/:id/join", requireAuth, (request, response) => {
-  const gameId = Number(request.params.id);
-  const user = request.session.user;
-
-  if (!user) {
-    response.redirect("/auth/login");
-    return;
+router.post("/:id/join", requireAuth, async (request, response, next) => {
+  try {
+    const user = request.session.user;
+    if (!user) {
+      response.redirect("/auth/login");
+      return;
+    }
+    const gameId = Number(request.params.id);
+    await joinGame(gameId, user.id);
+    const state = await getGameState(gameId);
+    broadcastToRoom(`game-${String(gameId)}`, "game:updated", state);
+    response.redirect(`/games/${String(gameId)}`);
+  } catch (error) {
+    next(error);
   }
-
-  let game = demoGames.get(gameId);
-
-  if (!game) {
-    game = {
-      id: gameId,
-      status: "waiting",
-      players: [],
-      playedTiles: [],
-    };
-    demoGames.set(gameId, game);
-  }
-
-  if (!game.players.includes(user.email)) {
-    game.players.push(user.email);
-  }
-
-  broadcastToRoom(`game-${String(gameId)}`, "game:updated", game);
-  response.redirect(`/games/${String(gameId)}`);
 });
 
-router.post("/:id/start", requireAuth, (request, response) => {
-  const gameId = Number(request.params.id);
-  const game = demoGames.get(gameId);
-
-  if (!game) {
-    response.redirect("/lobby");
-    return;
+router.post("/:id/start", requireAuth, async (request, response) => {
+  try {
+    const gameId = Number(request.params.id);
+    await startGame(gameId);
+    const state = await getGameState(gameId);
+    broadcastToRoom(`game-${String(gameId)}`, "game:updated", state);
+    response.redirect(`/games/${String(gameId)}`);
+  } catch (error) {
+    // For form-submit, redirect back to the game with the error in a flash-style query
+    const message = error instanceof Error ? error.message : "Failed to start game";
+    const gameId = Number(request.params.id);
+    response.redirect(`/games/${String(gameId)}?error=${encodeURIComponent(message)}`);
   }
-
-  game.status = "started";
-
-  broadcastToRoom(`game-${String(gameId)}`, "game:updated", game);
-  response.redirect(`/games/${String(gameId)}`);
 });
 
-router.post("/:id/play", requireAuth, (request, response) => {
-  const gameId = Number(request.params.id);
-  const body = request.body as { tile?: unknown };
+router.post("/:id/play", requireAuth, async (request, response) => {
+  try {
+    const user = request.session.user;
+    if (!user) {
+      response.status(401).json({ ok: false, error: "Not logged in" });
+      return;
+    }
+    const gameId = Number(request.params.id);
+    const body = request.body as { player_tile_id?: unknown };
+    const playerTileId = Number(body.player_tile_id);
+    if (!Number.isFinite(playerTileId)) {
+      response.status(400).json({ ok: false, error: "player_tile_id required" });
+      return;
+    }
 
-  const tile =
-    typeof body.tile === "string" && body.tile.trim() !== ""
-      ? body.tile.trim().charAt(0).toUpperCase()
-      : "A";
-  const game = demoGames.get(gameId);
-
-  if (!game) {
-    response.redirect("/lobby");
-    return;
+    await playTile(gameId, user.id, playerTileId);
+    const state = await getGameState(gameId);
+    broadcastToRoom(`game-${String(gameId)}`, "game:updated", state);
+    response.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to play tile";
+    response.status(400).json({ ok: false, error: message });
   }
-
-  game.playedTiles.push(tile);
-
-  broadcastToRoom(`game-${String(gameId)}`, "game:updated", game);
-  response.redirect(`/games/${String(gameId)}`);
 });
 
-router.get("/:id/state", requireAuth, (request, response) => {
-  const gameId = Number(request.params.id);
-  const game = demoGames.get(gameId);
-
-  response.json({
-    ok: true,
-    game,
-  });
+router.get("/:id/state", requireAuth, async (request, response, next) => {
+  try {
+    const user = request.session.user;
+    if (!user) {
+      response.redirect("/auth/login");
+      return;
+    }
+    const gameId = Number(request.params.id);
+    const state = await getGameState(gameId);
+    if (!state) {
+      response.status(404).json({ ok: false, error: "Game not found" });
+      return;
+    }
+    const rack = await getPlayerRack(gameId, user.id);
+    response.json({ ok: true, game: state, rack });
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default router;

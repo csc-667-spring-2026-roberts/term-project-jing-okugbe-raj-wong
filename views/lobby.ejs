@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Scrabble Lobby</title>
   <link rel="stylesheet" href="/css/home.css">
+  <script src="/js/lobby.js" defer></script>
 </head>
-
 <body>
   <nav>
     <a href="/">Home</a>
     <% if (typeof user !== "undefined" && user) { %>
       <span>Welcome, <%= user.email %>!</span>
-      <form action="/auth/logout" method="POST">
+      <form action="/auth/logout" method="POST" style="display:inline">
         <button type="submit">Logout</button>
       </form>
     <% } else { %>
@@ -22,30 +22,21 @@
   </nav>
 
   <main>
-    <h1>Scrabble Practice Lobby</h1>
-
-    <p>
-      Create a Scrabble game, invite another player, start the game, and play one tile.
-      This is the initial M10 gameplay demo.
-    </p>
+    <h1>Scrabble Lobby</h1>
+    <p id="status-message">Loading games...</p>
 
     <section class="card">
       <h2>Create Game</h2>
       <form action="/games" method="POST">
-        <button type="submit">Create Scrabble Game</button>
+        <button type="submit">Create New Scrabble Game</button>
       </form>
     </section>
 
     <section class="card">
-      <h2>M10 Demo Flow</h2>
-      <ol>
-        <li>Player 1 creates a game.</li>
-        <li>Player 2 opens the same game link.</li>
-        <li>Player 2 joins the game.</li>
-        <li>Player 1 starts the game.</li>
-        <li>One player plays a tile.</li>
-        <li>The other browser sees the update through SSE.</li>
-      </ol>
+      <h2>Open Games (waiting for players)</h2>
+      <ul id="games-list">
+        <li><em>Loading...</em></li>
+      </ul>
     </section>
   </main>
 </body>

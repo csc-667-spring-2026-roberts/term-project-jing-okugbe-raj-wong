@@ -3,61 +3,102 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scrabble Game</title>
+  <title>Scrabble Game #<%= gameId %></title>
   <link rel="stylesheet" href="/css/home.css">
   <script src="/js/game.js" defer></script>
 </head>
-
 <body>
   <nav>
     <a href="/">Home</a>
     <a href="/lobby">Lobby</a>
-
     <% if (typeof user !== "undefined" && user) { %>
       <span>Welcome, <%= user.email %>!</span>
-      <form action="/auth/logout" method="POST">
+      <form action="/auth/logout" method="POST" style="display:inline">
         <button type="submit">Logout</button>
       </form>
     <% } %>
   </nav>
 
-  <main data-game-id="<%= gameId %>">
+  <main
+    data-game-id="<%= gameId %>"
+    data-current-user-id="<%= user.id %>"
+  >
     <h1>Scrabble Game #<%= gameId %></h1>
+    <p id="status-message">Connecting to live updates...</p>
 
-    <p>
-      Open this same page in another browser or incognito window to test two players.
-    </p>
+    <% if (errorMessage) { %>
+      <p style="color:#b00; padding:8px; background:#fee; border:1px solid #fbb;">
+        <%= errorMessage %>
+      </p>
+    <% } %>
+
+    <section class="card">
+      <h2>Status: <span id="game-status"><%= game.status %></span></h2>
+      <p>Tiles remaining in bag: <span id="tiles-remaining"><%= game.tiles_remaining %></span></p>
+      <p>Whose turn: <span id="turn-indicator">
+        <%= game.current_turn_user_id ? game.current_turn_user_id : "—" %>
+      </span></p>
+    </section>
+
+    <section class="card">
+      <h2>Players</h2>
+      <ul id="players-list">
+        <% game.players.forEach(function(p) { %>
+          <li data-user-id="<%= p.user_id %>">
+            <%= p.email %> — score: <span class="player-score"><%= p.score %></span>
+          </li>
+        <% }); %>
+      </ul>
+    </section>
 
     <section class="card">
       <h2>Game Controls</h2>
 
-      <form action="/games/<%= gameId %>/join" method="POST">
-        <button type="submit">Join This Game</button>
-      </form>
+      <% if (game.status === "waiting") { %>
+        <% var inGame = game.players.some(function(p){ return p.user_id === user.id; }); %>
 
-      <form action="/games/<%= gameId %>/start" method="POST">
-        <button type="submit">Start Game</button>
-      </form>
+        <% if (!inGame) { %>
+          <form action="/games/<%= gameId %>/join" method="POST">
+            <button type="submit">Join This Game</button>
+          </form>
+        <% } %>
 
-      <form action="/games/<%= gameId %>/play" method="POST">
-        <label for="tile">Play one tile</label>
-        <input id="tile" name="tile" maxlength="1" value="A">
-        <button type="submit">Play Tile</button>
-      </form>
+        <% if (inGame && game.players.length >= 2) { %>
+          <form action="/games/<%= gameId %>/start" method="POST">
+            <button type="submit">Start Game</button>
+          </form>
+        <% } else if (inGame) { %>
+          <p><em>Waiting for at least 2 players to start.</em></p>
+        <% } %>
+      <% } %>
     </section>
 
     <section class="card">
-      <h2>Live Game State</h2>
-      <p id="status-message">Connecting to live updates...</p>
+      <h2>Board (row 7)</h2>
+      <ol id="board-list">
+        <% game.board.forEach(function(t) { %>
+          <li>
+            (<%= t.row %>, <%= t.col %>) <strong><%= t.letter %></strong> (<%= t.score %>)
+          </li>
+        <% }); %>
+      </ol>
+    </section>
 
-      <h3>Status</h3>
-      <p id="game-status">Waiting</p>
-
-      <h3>Players</h3>
-      <ul id="players-list"></ul>
-
-      <h3>Played Tiles</h3>
-      <ul id="played-tiles-list"></ul>
+    <section class="card">
+      <h2>Your Rack</h2>
+      <div id="rack" data-rack='<%- JSON.stringify(rack) %>'>
+        <% rack.forEach(function(tile) { %>
+          <button
+            class="rack-tile"
+            data-player-tile-id="<%= tile.id %>"
+            <%= game.current_turn_user_id === user.id ? "" : "disabled" %>
+          >
+            <strong><%= tile.letter %></strong>
+            <small>(<%= tile.score %>)</small>
+          </button>
+        <% }); %>
+      </div>
+      <p><small>Click a tile to play it. Only enabled on your turn.</small></p>
     </section>
   </main>
 </body>

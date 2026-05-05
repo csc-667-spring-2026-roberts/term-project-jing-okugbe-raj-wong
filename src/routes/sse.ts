@@ -20,12 +20,12 @@ router.get("/sse", async (request, response, next) => {
 
     const clientId = addSseClient(room, response);
 
-    const players = await db.any(
+    if (room === "lobby") {
+      const players = await db.any(
       "SELECT id, display_name, created_at FROM players ORDER BY id DESC LIMIT 100",
-    );
-
-    sendSseEvent(response, "players:init", { room, players });
-
+      );
+      sendSseEvent(response, "players:init", { room, players });
+  }// Previously leaked into every room. 
     const heartbeat = setInterval(() => {
       response.write(": ping\n\n");
     }, 25000);
