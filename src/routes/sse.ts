@@ -1,43 +1,33 @@
 import { Router } from "express";
-import { db } from "../db/connection.js";
 import { addSseClient, removeSseClient, sendSseEvent } from "../sse.js";
 
 const router = Router();
 
-router.get("/sse", async (request, response, next) => {
-  try {
-    const room =
-      typeof request.query.room === "string" && request.query.room.trim() !== ""
-        ? request.query.room.trim()
-        : "lobby";
+router.get("/sse", (request, response) => {
+  const room =
+    typeof request.query.room === "string" && request.query.room.trim() !== ""
+      ? request.query.room.trim()
+      : "lobby";
 
-    response.setHeader("Content-Type", "text/event-stream");
-    response.setHeader("Cache-Control", "no-cache");
-    response.setHeader("Connection", "keep-alive");
-    response.flushHeaders();
+  response.setHeader("Content-Type", "text/event-stream");
+  response.setHeader("Cache-Control", "no-cache");
+  response.setHeader("Connection", "keep-alive");
+  response.flushHeaders();
 
-    response.write("retry: 3000\n\n");
+  response.write("retry: 3000\n\n");
 
-    const clientId = addSseClient(room, response);
+  const clientId = addSseClient(room, response);
+  sendSseEvent(response, "sse:connected", { room });
 
-    if (room === "lobby") {
-      const players = await db.any(
-      "SELECT id, display_name, created_at FROM players ORDER BY id DESC LIMIT 100",
-      );
-      sendSseEvent(response, "players:init", { room, players });
-  }// Previously leaked into every room. 
-    const heartbeat = setInterval(() => {
-      response.write(": ping\n\n");
-    }, 25000);
+  const heartbeat = setInterval((): void => {
+    response.write(": ping\n\n");
+  }, 25000);
 
-    request.on("close", () => {
-      clearInterval(heartbeat);
-      removeSseClient(clientId);
-      response.end();
-    });
-  } catch (error) {
-    next(error);
-  }
+  request.on("close", (): void => {
+    clearInterval(heartbeat);
+    removeSseClient(clientId);
+    response.end();
+  });
 });
 
 export default router;
