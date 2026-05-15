@@ -1,4 +1,4 @@
-import { Router, Request } from "express";
+import { Router } from "express";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { broadcastToRoom } from "../sse.js";
 import {
@@ -10,15 +10,6 @@ import {
   getGameState,
   getPlayerRack,
 } from "../db/games.js";
-
-interface SessionRequest extends Request {
-  session?: {
-    user?: {
-      id: number;
-      email: string;
-    };
-  };
-}
 
 const router = Router();
 
@@ -59,8 +50,7 @@ router.get("/:id", requireAuth, async (request, response, next) => {
       return;
     }
     const rack = await getPlayerRack(gameId, user.id);
-    const errorMessage =
-      typeof request.query.error === "string" ? request.query.error : null;
+    const errorMessage = typeof request.query.error === "string" ? request.query.error : null;
     response.render("game", {
       user,
       gameId,
@@ -73,20 +63,25 @@ router.get("/:id", requireAuth, async (request, response, next) => {
   }
 });
 
-router.post("/:id/join", requireAuth, async (request, response, next) => {
+router.post("/:id/join", requireAuth, async (request, response) => {
+  const gameId = Number(request.params.id);
+
   try {
     const user = request.session.user;
     if (!user) {
       response.redirect("/auth/login");
       return;
     }
-    const gameId = Number(request.params.id);
+
     await joinGame(gameId, user.id);
+
     const state = await getGameState(gameId);
     broadcastToRoom(`game-${String(gameId)}`, "game:updated", state);
+
     response.redirect(`/games/${String(gameId)}`);
   } catch (error) {
-    next(error);
+    const message = error instanceof Error ? error.message : "Failed to join game";
+    response.redirect(`/games/${String(gameId)}?error=${encodeURIComponent(message)}`);
   }
 });
 
@@ -119,14 +114,20 @@ router.post("/:id/play", requireAuth, async (request, response) => {
       return;
     }
 
-    const placements = (body.placements as { player_tile_id: unknown; row: unknown; col: unknown }[]).map((p) => ({
+    const placements = (
+      body.placements as { player_tile_id: unknown; row: unknown; col: unknown }[]
+    ).map((p) => ({
       player_tile_id: Number(p.player_tile_id),
       row: Number(p.row),
       col: Number(p.col),
     }));
 
     for (const p of placements) {
-      if (!Number.isFinite(p.player_tile_id) || !Number.isFinite(p.row) || !Number.isFinite(p.col)) {
+      if (
+        !Number.isFinite(p.player_tile_id) ||
+        !Number.isFinite(p.row) ||
+        !Number.isFinite(p.col)
+      ) {
         response.status(400).json({ ok: false, error: "Invalid placement data" });
         return;
       }

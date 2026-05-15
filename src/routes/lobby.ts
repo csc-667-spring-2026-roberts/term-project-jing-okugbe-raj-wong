@@ -17,6 +17,7 @@ router.get("/games", requireAuth, async (_request, response, next) => {
          FROM games g
          LEFT JOIN users u ON u.id = g.created_by_user_id
         WHERE g.status = 'waiting'
+          AND g.created_at >= CURRENT_TIMESTAMP - INTERVAL '48 hours'
         ORDER BY g.created_at DESC
         LIMIT 50`,
     );

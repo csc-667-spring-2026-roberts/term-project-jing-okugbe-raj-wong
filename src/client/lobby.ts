@@ -65,7 +65,7 @@ function renderGameRow(game: WaitingGame): void {
   }
 
   if (playerCount) {
-    playerCount.textContent = `${String(game.player_count)} player(s) — `;
+    playerCount.textContent = `${String(game.player_count)}/4 players — `;
   }
 
   if (link) {

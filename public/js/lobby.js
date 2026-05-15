@@ -40,7 +40,7 @@
       creator.textContent = `created by ${game.created_by_email ?? "unknown"} \u2014 `;
     }
     if (playerCount) {
-      playerCount.textContent = `${String(game.player_count)} player(s) \u2014 `;
+      playerCount.textContent = `${String(game.player_count)}/4 players \u2014 `;
     }
     if (link) {
       link.href = `/games/${String(game.id)}`;

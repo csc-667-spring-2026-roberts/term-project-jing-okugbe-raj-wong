@@ -1,6 +1,7 @@
+/* eslint-disable complexity, max-lines-per-function, @typescript-eslint/no-non-null-assertion */
 import { db } from "./connection.js";
 
-// Types 
+// Types
 
 export type GameStatus = "waiting" | "started" | "finished";
 
@@ -20,7 +21,7 @@ export type GamePlayerRow = {
 };
 
 export type RackTile = {
-  id: number;          
+  id: number;
   tile_id: number;
   letter: string;
   score: number;
@@ -43,14 +44,13 @@ export type GameState = {
   tiles_remaining: number;
 };
 
-
 export type TilePlacement = {
   player_tile_id: number;
   row: number;
   col: number;
 };
 
-// Reads 
+// Reads
 
 export async function getGameById(gameId: number): Promise<Game | null> {
   return db.oneOrNone<Game>(`SELECT * FROM games WHERE id = $1`, [gameId]);
@@ -120,7 +120,7 @@ export async function getGameState(gameId: number): Promise<GameState | null> {
   };
 }
 
-// Writes 
+// Writes
 
 export async function createGame(userId: number): Promise<Game> {
   return db.tx(async (t) => {
@@ -141,18 +141,51 @@ export async function createGame(userId: number): Promise<Game> {
 }
 
 export async function joinGame(gameId: number, userId: number): Promise<void> {
-  await db.none(
-    `INSERT INTO game_players (game_id, user_id)
-     VALUES ($1, $2)
-     ON CONFLICT (game_id, user_id) DO NOTHING`,
-    [gameId, userId],
-  );
+  await db.tx(async (t) => {
+    const game = await t.oneOrNone<Game>(`SELECT * FROM games WHERE id = $1 FOR UPDATE`, [gameId]);
+
+    if (!game) {
+      throw new Error("Game not found");
+    }
+
+    if (game.status !== "waiting") {
+      throw new Error("Cannot join a game that already started");
+    }
+
+    const alreadyJoined = await t.oneOrNone<{ user_id: number }>(
+      `SELECT user_id
+         FROM game_players
+        WHERE game_id = $1 AND user_id = $2`,
+      [gameId, userId],
+    );
+
+    if (alreadyJoined) {
+      return;
+    }
+
+    const row = await t.one<{ count: number }>(
+      `SELECT COUNT(*)::int AS count
+         FROM game_players
+        WHERE game_id = $1`,
+      [gameId],
+    );
+
+    if (row.count >= MAX_PLAYERS) {
+      throw new Error("This game is full");
+    }
+
+    await t.none(
+      `INSERT INTO game_players (game_id, user_id)
+       VALUES ($1, $2)`,
+      [gameId, userId],
+    );
+  });
 }
 
 // Fisher-Yates shuffle in place
 
 function fisherYatesShuffle<T>(input: readonly T[]): T[] {
-  const arr = [...input];// on a copy to avoid mutating original
+  const arr = [...input]; // on a copy to avoid mutating original
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     const tmp = arr[i] as T;
@@ -163,14 +196,13 @@ function fisherYatesShuffle<T>(input: readonly T[]): T[] {
 }
 
 const TILES_PER_PLAYER = 7;
+const MIN_PLAYERS_TO_START = 2;
+const MAX_PLAYERS = 4;
 
 export async function startGame(gameId: number): Promise<void> {
   await db.tx(async (t) => {
     // Guard 1: only start if currently waiting (re-start protection)
-    const game = await t.oneOrNone<Game>(
-      `SELECT * FROM games WHERE id = $1`,
-      [gameId],
-    );
+    const game = await t.oneOrNone<Game>(`SELECT * FROM games WHERE id = $1`, [gameId]);
     if (!game) throw new Error("Game not found");
     if (game.status !== "waiting") {
       throw new Error(`Cannot start game in status '${game.status}'`);
@@ -184,16 +216,18 @@ export async function startGame(gameId: number): Promise<void> {
     );
 
     // Guard 2: min 2 players
-    if (players.length < 2) {
-      throw new Error("Need at least 2 players to start");
+    if (players.length < MIN_PLAYERS_TO_START) {
+      throw new Error(`Need at least ${String(MIN_PLAYERS_TO_START)} players to start`);
+    }
+
+    if (players.length > MAX_PLAYERS) {
+      throw new Error(`This game supports up to ${String(MAX_PLAYERS)} players`);
     }
     const firstPlayer = players[0];
     if (!firstPlayer) throw new Error("Cannot start game with no players");
 
     // 1. Build the bag from the tiles lookup
-    const tiles = await t.any<{ id: number; quantity: number }>(
-      `SELECT id, quantity FROM tiles`,
-    );
+    const tiles = await t.any<{ id: number; quantity: number }>(`SELECT id, quantity FROM tiles`);
     const bag: number[] = [];
     for (const tile of tiles) {
       for (let i = 0; i < tile.quantity; i++) bag.push(tile.id);
@@ -241,7 +275,7 @@ export async function startGame(gameId: number): Promise<void> {
   });
 }
 
-// "Play one tile" 
+// "Play one tile"
 export async function playWord(
   gameId: number,
   userId: number,
@@ -353,10 +387,11 @@ export async function playWord(
       wordScore += tileScore.score;
     }
 
-    await t.none(
-      `UPDATE game_players SET score = score + $1 WHERE game_id = $2 AND user_id = $3`,
-      [wordScore, gameId, userId],
-    );
+    await t.none(`UPDATE game_players SET score = score + $1 WHERE game_id = $2 AND user_id = $3`, [
+      wordScore,
+      gameId,
+      userId,
+    ]);
 
     const available = await t.any<{ id: number; tile_id: number }>(
       `SELECT id, tile_id FROM game_tile_bag

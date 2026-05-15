@@ -18,4 +18,8 @@ router.get("/register", (_request, response) => {
   response.redirect("/auth/register");
 });
 
+router.get("/rules", (request, response) => {
+  response.render("rules", { user: request.session.user ?? null });
+});
+
 export default router;
