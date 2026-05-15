@@ -164,7 +164,9 @@ function renderRack(rack: RackTile[], game: GameState): void {
     button.append(letter, score);
     button.addEventListener("click", () => {
       selectedRackTileId = selectedRackTileId === tile.id ? null : tile.id;
-      renderRack(currentRack, currentGame!);
+      if (currentGame) {
+        renderRack(currentRack, currentGame);
+      }
     });
 
     rackContainer.appendChild(button);
@@ -211,7 +213,30 @@ function updateActionButtons(): void {
   if (passBtn) passBtn.disabled = !isMyTurn;
 }
 
+function shouldReloadForWaitingStateUpdate(game: GameState): boolean {
+  const previousGame = currentGame;
+
+  if (!previousGame) {
+    return false;
+  }
+
+  if (previousGame.status === "waiting" && game.status === "started") {
+    return true;
+  }
+
+  if (previousGame.status !== "waiting" || game.status !== "waiting") {
+    return false;
+  }
+
+  return previousGame.players.length !== game.players.length;
+}
+
 function renderGame(game: GameState, rack: RackTile[]): void {
+  if (shouldReloadForWaitingStateUpdate(game)) {
+    window.location.reload();
+    return;
+  }
+
   currentGame = game;
   currentRack = rack;
 
