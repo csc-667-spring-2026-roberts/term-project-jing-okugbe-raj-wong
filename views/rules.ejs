@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scrabble Rules</title>
+  <link rel="stylesheet" href="/css/home.css">
+</head>
+<body>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/lobby">Lobby</a>
+    <a href="/rules">Rules</a>
+    <% if (typeof user !== "undefined" && user) { %>
+      <span>Welcome, <%= user.email %></span>
+      <form action="/auth/logout" method="POST">
+        <button type="submit">Logout</button>
+      </form>
+    <% } else { %>
+      <a href="/auth/login">Login</a>
+      <a href="/auth/register">Register</a>
+    <% } %>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <h1>Game Rules</h1>
+      <p>A simple multiplayer Scrabble-style game for live classroom demo.</p>
+      <div class="hero-actions">
+        <a class="button" href="/lobby">Go to Lobby</a>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <h2>How to Play</h2>
+      <ul class="rules-list">
+        <li><strong>Players</strong>The game supports up to 4 players and can start with at least 2 players.</li>
+        <li><strong>Starting Tiles</strong>Each player starts with 7 tiles in their rack.</li>
+        <li><strong>Turns</strong>Players take turns placing tiles on the board.</li>
+        <li><strong>First Move</strong>The first word should cross the center square.</li>
+        <li><strong>Word Placement</strong>Tiles must be placed in one row or one column.</li>
+        <li><strong>Connection Rule</strong>New words should connect to existing tiles after the first move.</li>
+        <li><strong>Replacement Tiles</strong>After submitting a word, used tiles are replaced from the tile bag.</li>
+        <li><strong>Scoring</strong>The score increases based on the tile values used for the submitted word.</li>
+        <li><strong>Passing</strong>A player can pass the turn if they do not want to place a word.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

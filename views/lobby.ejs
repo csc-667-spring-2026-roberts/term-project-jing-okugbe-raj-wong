@@ -10,9 +10,11 @@
 <body>
   <nav>
     <a href="/">Home</a>
+    <a href="/lobby">Lobby</a>
+    <a href="/rules">Rules</a>
     <% if (typeof user !== "undefined" && user) { %>
-      <span>Welcome, <%= user.email %>!</span>
-      <form action="/auth/logout" method="POST" style="display:inline">
+      <span>Welcome, <%= user.email %></span>
+      <form action="/auth/logout" method="POST">
         <button type="submit">Logout</button>
       </form>
     <% } else { %>
@@ -22,32 +24,37 @@
   </nav>
 
   <main>
-    <h1>Scrabble Lobby</h1>
-    <p id="status-message">Loading games...</p>
-
-    <section class="card">
-      <h2>Create Game</h2>
-      <form action="/games" method="POST">
-        <button type="submit">Create New Scrabble Game</button>
-      </form>
+    <section class="hero">
+      <h1>Scrabble Lobby</h1>
+      <p>Start a new match, join an open table, and play live with 2 to 4 players.</p>
+      <p id="status-message">Loading games...</p>
+      <div class="hero-actions">
+        <form action="/games" method="POST">
+          <button type="submit">Create New Game</button>
+        </form>
+        <a class="button secondary" href="/rules">Read Rules</a>
+      </div>
     </section>
 
-    <section class="card">
-      <h2>Open Games (waiting for players)</h2>
+    <section class="card wide">
+      <h2>Open Games</h2>
+      <p>Waiting games are listed here. A game can start with 2 players and supports up to 4 players.</p>
       <ul id="games-list">
         <li><em>Loading...</em></li>
       </ul>
     </section>
 
     <template id="empty-games-template">
-      <li><em>No open games. Create one above.</em></li>
+      <li><em>No open games right now. Create one above.</em></li>
     </template>
 
     <template id="game-row-template">
       <li>
-        <span class="game-title"></span>
-        <span class="game-creator"></span>
-        <span class="game-player-count"></span>
+        <span>
+          <span class="game-title"></span>
+          <span class="game-creator"></span>
+          <span class="game-player-count"></span>
+        </span>
         <a class="game-link">Open</a>
       </li>
     </template>

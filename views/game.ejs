@@ -11,9 +11,10 @@
   <nav>
     <a href="/">Home</a>
     <a href="/lobby">Lobby</a>
+    <a href="/rules">Rules</a>
     <% if (typeof user !== "undefined" && user) { %>
-      <span>Welcome, <%= user.email %>!</span>
-      <form action="/auth/logout" method="POST" style="display:inline">
+      <span>Welcome, <%= user.email %></span>
+      <form action="/auth/logout" method="POST">
         <button type="submit">Logout</button>
       </form>
     <% } %>
@@ -23,24 +24,36 @@
     data-game-id="<%= gameId %>"
     data-current-user-id="<%= user.id %>"
   >
-    <h1>Scrabble Game #<%= gameId %></h1>
-    <p id="status-message">Connecting to live updates...</p>
-
-    <% if (errorMessage) { %>
-      <p style="color:#b00; padding:8px; background:#fee; border:1px solid #fbb;">
-        <%= errorMessage %>
-      </p>
-    <% } %>
-
-    <section class="card">
-      <h2>Status: <span id="game-status"><%= game.status %></span></h2>
-      <p>Tiles remaining in bag: <span id="tiles-remaining"><%= game.tiles_remaining %></span></p>
-      <p>Turn: <span id="turn-indicator">
-        <%= game.current_turn_user_id ? game.current_turn_user_id : "\u2014" %>
-      </span></p>
+    <section class="hero">
+      <h1>Game #<%= gameId %></h1>
+      <p>Place tiles, submit whole words, replace used tiles from the bag, and take turns live.</p>
+      <p id="status-message">Connecting to live updates...</p>
     </section>
 
-    <section class="card">
+    <% if (errorMessage) { %>
+      <div class="alert-error"><%= errorMessage %></div>
+    <% } %>
+
+    <section class="card wide">
+      <div class="stats-grid">
+        <div class="stat-box">
+          <span class="stat-label">Status</span>
+          <span class="stat-value" id="game-status"><%= game.status %></span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Current Turn</span>
+          <span class="stat-value" id="turn-indicator">
+            <%= game.current_turn_user_id ? game.current_turn_user_id : "\u2014" %>
+          </span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Tiles Left</span>
+          <span class="stat-value" id="tiles-remaining"><%= game.tiles_remaining %></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card wide">
       <h2>Players</h2>
       <ul id="players-list">
         <% game.players.forEach(function(p) { %>
@@ -51,42 +64,48 @@
       </ul>
     </section>
 
-    <section class="card">
+    <section class="card wide">
       <h2>Game Controls</h2>
+      <p>Maximum 4 players. The match can start once at least 2 players have joined.</p>
 
       <% if (game.status === "waiting") { %>
         <% var inGame = game.players.some(function(p){ return p.user_id === user.id; }); %>
+        <% var gameFull = game.players.length >= 4; %>
 
-        <% if (!inGame) { %>
-          <form action="/games/<%= gameId %>/join" method="POST">
-            <button type="submit">Join This Game</button>
-          </form>
-        <% } %>
+        <div class="game-actions">
+          <% if (!inGame && !gameFull) { %>
+            <form action="/games/<%= gameId %>/join" method="POST">
+              <button type="submit">Join This Game</button>
+            </form>
+          <% } else if (!inGame && gameFull) { %>
+            <p><em>This game is full.</em></p>
+          <% } %>
 
-        <% if (inGame && game.players.length >= 2) { %>
-          <form action="/games/<%= gameId %>/start" method="POST">
-            <button type="submit">Start Game</button>
-          </form>
-        <% } else if (inGame) { %>
-          <p><em>Waiting for at least 2 players to start.</em></p>
-        <% } %>
+          <% if (inGame && game.players.length >= 2) { %>
+            <form action="/games/<%= gameId %>/start" method="POST">
+              <button type="submit">Start Game</button>
+            </form>
+          <% } else if (inGame) { %>
+            <p><em>Waiting for at least 2 players to start.</em></p>
+          <% } %>
+        </div>
       <% } %>
     </section>
 
-    <section class="card">
+    <section class="card wide game-board-card">
       <h2>Board</h2>
       <div id="board-grid" class="board-grid"></div>
     </section>
 
-    <section class="card">
+    <section class="card wide">
       <h2>Your Rack</h2>
       <div id="rack"></div>
       <div class="game-actions">
         <button id="submit-word" disabled>Submit Word</button>
-        <button id="clear-placements" disabled>Clear</button>
-        <button id="pass-turn" disabled>Pass Turn</button>
+        <button id="clear-placements" class="secondary" disabled>Clear</button>
+        <button id="pass-turn" class="secondary" disabled>Pass Turn</button>
       </div>
-      <p><small>Select a tile from your rack, then click a board cell to place it. Click a green pending tile to remove it.</small></p>
+      <p class="footer-note">Select a tile from your rack, then click a board cell to place it. Click a pending tile to remove it.</p>
     </section>
   </main>
 </body>

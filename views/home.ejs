@@ -1,10 +1,29 @@
-<%- include("partials/header", { title: "Home" }) %>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scrabble</title>
+  <link rel="stylesheet" href="/css/home.css">
+</head>
+<body>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/lobby">Lobby</a>
+    <a href="/rules">Rules</a>
+    <a href="/auth/login">Login</a>
+    <a href="/auth/register">Register</a>
+  </nav>
 
-<h1>Home Page</h1>
-<p>This is the home page.</p>
-
-<p><a href="./auth/login.ejs">Go to Login</a></p>
-<p><a href="./auth/register.ejs">Go to Register</a></p>
-<p><a href="./lobby.ejs">Go to Lobby</a></p>
-
-<%- include("partials/footer") %>
+  <main>
+    <section class="hero">
+      <h1>Scrabble</h1>
+      <p>A live multiplayer word game with tile racks, board placement, scoring, and turn updates.</p>
+      <div class="hero-actions">
+        <a class="button" href="/auth/login">Login</a>
+        <a class="button secondary" href="/auth/register">Register</a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
