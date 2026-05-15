@@ -43,6 +43,13 @@ export type GameState = {
   tiles_remaining: number;
 };
 
+
+export type TilePlacement = {
+  player_tile_id: number;
+  row: number;
+  col: number;
+};
+
 // Reads 
 
 export async function getGameById(gameId: number): Promise<Game | null> {
@@ -235,64 +242,171 @@ export async function startGame(gameId: number): Promise<void> {
 }
 
 // "Play one tile" 
-
-export async function playTile(
+export async function playWord(
   gameId: number,
   userId: number,
-  playerTileId: number,
-): Promise<{ row: number; col: number }> {
+  placements: TilePlacement[],
+): Promise<void> {
   return db.tx(async (t) => {
     const game = await t.one<Game>(`SELECT * FROM games WHERE id = $1`, [gameId]);
     if (game.status !== "started") throw new Error("Game not started");
     if (game.current_turn_user_id !== userId) throw new Error("Not your turn");
+    if (placements.length === 0) throw new Error("Must place at least one tile");
 
-    const tile = await t.oneOrNone<{ id: number; tile_id: number }>(
-      `SELECT id, tile_id FROM player_tiles
-        WHERE id = $1 AND game_id = $2 AND user_id = $3 AND status = 'in_hand'`,
-      [playerTileId, gameId, userId],
+    for (const p of placements) {
+      if (p.row < 0 || p.row > 14 || p.col < 0 || p.col > 14) {
+        throw new Error(`Position (${String(p.row)}, ${String(p.col)}) is off the board`);
+      }
+    }
+
+    const posSet = new Set(placements.map((p) => `${String(p.row)},${String(p.col)}`));
+    if (posSet.size !== placements.length) {
+      throw new Error("Cannot place two tiles on the same cell");
+    }
+
+    const tiles: { id: number; tile_id: number }[] = [];
+    for (const p of placements) {
+      const tile = await t.oneOrNone<{ id: number; tile_id: number }>(
+        `SELECT id, tile_id FROM player_tiles
+          WHERE id = $1 AND game_id = $2 AND user_id = $3 AND status = 'in_hand'`,
+        [p.player_tile_id, gameId, userId],
+      );
+      if (!tile) throw new Error("Tile not in your hand");
+      tiles.push(tile);
+    }
+
+    const existingTiles = await t.any<{ row: number; col: number }>(
+      `SELECT board_row AS row, board_col AS col FROM played_tiles WHERE game_id = $1`,
+      [gameId],
     );
-    if (!tile) throw new Error("Tile not in your hand");
+    const occupied = new Set(existingTiles.map((et) => `${String(et.row)},${String(et.col)}`));
 
-    const row = 7;
-    const last = await t.one<{ max_col: number | null }>(
-      `SELECT MAX(board_col) AS max_col FROM played_tiles
-        WHERE game_id = $1 AND board_row = $2`,
-      [gameId, row],
-    );
-    const col = (last.max_col ?? -1) + 1;
+    for (const p of placements) {
+      if (occupied.has(`${String(p.row)},${String(p.col)}`)) {
+        throw new Error(`Cell (${String(p.row)}, ${String(p.col)}) is already occupied`);
+      }
+    }
 
-    await t.none(`UPDATE player_tiles SET status = 'played' WHERE id = $1`, [tile.id]);
+    const allSameRow = placements.every((p) => p.row === placements[0]!.row);
+    const allSameCol = placements.every((p) => p.col === placements[0]!.col);
+    if (!allSameRow && !allSameCol) {
+      throw new Error("All tiles must be placed in the same row or column");
+    }
+
+    if (allSameRow && placements.length > 1) {
+      const row = placements[0]!.row;
+      const cols = placements.map((p) => p.col).sort((a, b) => a - b);
+      for (let c = cols[0]!; c <= cols[cols.length - 1]!; c++) {
+        const isPlaced = placements.some((p) => p.col === c);
+        const isExisting = occupied.has(`${String(row)},${String(c)}`);
+        if (!isPlaced && !isExisting) {
+          throw new Error("Tiles must form a contiguous line with no gaps");
+        }
+      }
+    } else if (allSameCol && placements.length > 1) {
+      const col = placements[0]!.col;
+      const rows = placements.map((p) => p.row).sort((a, b) => a - b);
+      for (let r = rows[0]!; r <= rows[rows.length - 1]!; r++) {
+        const isPlaced = placements.some((p) => p.row === r);
+        const isExisting = occupied.has(`${String(r)},${String(col)}`);
+        if (!isPlaced && !isExisting) {
+          throw new Error("Tiles must form a contiguous line with no gaps");
+        }
+      }
+    }
+
+    const boardEmpty = existingTiles.length === 0;
+    if (boardEmpty) {
+      const coversCenter = placements.some((p) => p.row === 7 && p.col === 7);
+      if (!coversCenter) {
+        throw new Error("First word must cross the center square");
+      }
+    } else {
+      const connected = placements.some((p) => {
+        return (
+          occupied.has(`${String(p.row - 1)},${String(p.col)}`) ||
+          occupied.has(`${String(p.row + 1)},${String(p.col)}`) ||
+          occupied.has(`${String(p.row)},${String(p.col - 1)}`) ||
+          occupied.has(`${String(p.row)},${String(p.col + 1)}`)
+        );
+      });
+      if (!connected) {
+        throw new Error("Word must connect to existing tiles on the board");
+      }
+    }
+
+    let wordScore = 0;
+    for (let i = 0; i < placements.length; i++) {
+      const p = placements[i]!;
+      const tile = tiles[i]!;
+
+      await t.none(`UPDATE player_tiles SET status = 'played' WHERE id = $1`, [tile.id]);
+      await t.none(
+        `INSERT INTO played_tiles (game_id, user_id, tile_id, player_tile_id, board_row, board_col)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [gameId, userId, tile.tile_id, tile.id, p.row, p.col],
+      );
+
+      const tileScore = await t.one<{ score: number }>(`SELECT score FROM tiles WHERE id = $1`, [
+        tile.tile_id,
+      ]);
+      wordScore += tileScore.score;
+    }
+
     await t.none(
-      `INSERT INTO played_tiles (game_id, user_id, tile_id, player_tile_id, board_row, board_col)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [gameId, userId, tile.tile_id, tile.id, row, col],
+      `UPDATE game_players SET score = score + $1 WHERE game_id = $2 AND user_id = $3`,
+      [wordScore, gameId, userId],
     );
 
-    const tileScore = await t.one<{ score: number }>(
-      `SELECT score FROM tiles WHERE id = $1`,
-      [tile.tile_id],
+    const available = await t.any<{ id: number; tile_id: number }>(
+      `SELECT id, tile_id FROM game_tile_bag
+        WHERE game_id = $1 AND drawn_by_user_id IS NULL
+        ORDER BY draw_order ASC
+        LIMIT $2`,
+      [gameId, placements.length],
     );
-    await t.none(
-      `UPDATE game_players SET score = score + $1
-        WHERE game_id = $2 AND user_id = $3`,
-      [tileScore.score, gameId, userId],
-    );
+    for (const bag of available) {
+      await t.none(
+        `UPDATE game_tile_bag SET drawn_by_user_id = $1, drawn_at = CURRENT_TIMESTAMP WHERE id = $2`,
+        [userId, bag.id],
+      );
+      await t.none(
+        `INSERT INTO player_tiles (game_id, user_id, tile_id, tile_bag_id, status)
+         VALUES ($1, $2, $3, $4, 'in_hand')`,
+        [gameId, userId, bag.tile_id, bag.id],
+      );
+    }
 
-    // Advance turn
     const players = await t.any<{ user_id: number }>(
-      `SELECT user_id FROM game_players
-        WHERE game_id = $1 ORDER BY joined_at ASC`,
+      `SELECT user_id FROM game_players WHERE game_id = $1 ORDER BY joined_at ASC`,
       [gameId],
     );
     const idx = players.findIndex((p) => p.user_id === userId);
     const next = players[(idx + 1) % players.length];
     if (!next) throw new Error("No next player");
     await t.none(
-      `UPDATE games SET current_turn_user_id = $1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2`,
+      `UPDATE games SET current_turn_user_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
       [next.user_id, gameId],
     );
+  });
+}
 
-    return { row, col };
+export async function passTurn(gameId: number, userId: number): Promise<void> {
+  return db.tx(async (t) => {
+    const game = await t.one<Game>(`SELECT * FROM games WHERE id = $1`, [gameId]);
+    if (game.status !== "started") throw new Error("Game not started");
+    if (game.current_turn_user_id !== userId) throw new Error("Not your turn");
+
+    const players = await t.any<{ user_id: number }>(
+      `SELECT user_id FROM game_players WHERE game_id = $1 ORDER BY joined_at ASC`,
+      [gameId],
+    );
+    const idx = players.findIndex((p) => p.user_id === userId);
+    const next = players[(idx + 1) % players.length];
+    if (!next) throw new Error("No next player");
+    await t.none(
+      `UPDATE games SET current_turn_user_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+      [next.user_id, gameId],
+    );
   });
 }

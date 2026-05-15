@@ -35,6 +35,16 @@ type GameStateResponse = {
   error?: string;
 };
 
+type PendingPlacement = {
+  player_tile_id: number;
+  letter: string;
+  score: number;
+  row: number;
+  col: number;
+};
+
+const BOARD_SIZE = 15;
+
 const main = document.querySelector<HTMLElement>("main[data-game-id]");
 const gameId = main?.dataset.gameId;
 const currentUserId = main?.dataset.currentUserId ? Number(main.dataset.currentUserId) : null;
@@ -44,167 +54,261 @@ const gameStatus = document.querySelector<HTMLElement>("#game-status");
 const tilesRemaining = document.querySelector<HTMLElement>("#tiles-remaining");
 const turnIndicator = document.querySelector<HTMLElement>("#turn-indicator");
 const playersList = document.querySelector<HTMLUListElement>("#players-list");
-const boardList = document.querySelector<HTMLOListElement>("#board-list");
+const boardGrid = document.querySelector<HTMLDivElement>("#board-grid");
 const rackContainer = document.querySelector<HTMLDivElement>("#rack");
+const submitBtn = document.querySelector<HTMLButtonElement>("#submit-word");
+const clearBtn = document.querySelector<HTMLButtonElement>("#clear-placements");
+const passBtn = document.querySelector<HTMLButtonElement>("#pass-turn");
+
+let selectedRackTileId: number | null = null;
+let pendingPlacements: PendingPlacement[] = [];
+let currentRack: RackTile[] = [];
+let currentGame: GameState | null = null;
 
 function setStatus(message: string): void {
-  if (statusMessage) {
-    statusMessage.textContent = message;
-  }
+  if (statusMessage) statusMessage.textContent = message;
 }
 
 function renderPlayers(players: GamePlayer[]): void {
-  if (!playersList) {
-    return;
-  }
-
+  if (!playersList) return;
   playersList.replaceChildren();
-
   for (const player of players) {
     const li = document.createElement("li");
     li.dataset.userId = String(player.user_id);
-    li.textContent = `${player.email} — score: ${String(player.score)}`;
+    const isTurn = currentGame?.current_turn_user_id === player.user_id;
+    li.textContent = `${isTurn ? "\u25B6 " : ""}${player.email} \u2014 ${String(player.score)} pts`;
     playersList.appendChild(li);
   }
 }
 
 function renderBoard(board: BoardTile[]): void {
-  if (!boardList) {
-    return;
-  }
+  if (!boardGrid) return;
+  boardGrid.replaceChildren();
 
-  boardList.replaceChildren();
-
-  if (board.length === 0) {
-    const li = document.createElement("li");
-    li.textContent = "No tiles played yet.";
-    boardList.appendChild(li);
-    return;
-  }
-
+  const occupied = new Map<string, BoardTile>();
   for (const tile of board) {
-    const li = document.createElement("li");
-    li.textContent = `(${String(tile.row)}, ${String(tile.col)}) ${tile.letter} (${String(tile.score)})`;
-    boardList.appendChild(li);
+    occupied.set(`${String(tile.row)},${String(tile.col)}`, tile);
+  }
+
+  const pending = new Map<string, PendingPlacement>();
+  for (const p of pendingPlacements) {
+    pending.set(`${String(p.row)},${String(p.col)}`, p);
+  }
+
+  for (let row = 0; row < BOARD_SIZE; row++) {
+    for (let col = 0; col < BOARD_SIZE; col++) {
+      const cell = document.createElement("div");
+      cell.className = "board-cell";
+      cell.dataset.row = String(row);
+      cell.dataset.col = String(col);
+
+      const key = `${String(row)},${String(col)}`;
+      const existingTile = occupied.get(key);
+      const pendingTile = pending.get(key);
+
+      if (existingTile) {
+        cell.classList.add("occupied");
+        const letter = document.createElement("span");
+        letter.className = "cell-letter";
+        letter.textContent = existingTile.letter;
+        const score = document.createElement("span");
+        score.className = "cell-score";
+        score.textContent = String(existingTile.score);
+        cell.append(letter, score);
+      } else if (pendingTile) {
+        cell.classList.add("pending");
+        const letter = document.createElement("span");
+        letter.className = "cell-letter";
+        letter.textContent = pendingTile.letter;
+        const score = document.createElement("span");
+        score.className = "cell-score";
+        score.textContent = String(pendingTile.score);
+        cell.append(letter, score);
+        cell.addEventListener("click", () => {
+          removePending(row, col);
+        });
+      } else {
+        if (row === 7 && col === 7) cell.classList.add("center");
+        cell.addEventListener("click", () => {
+          handleBoardClick(row, col);
+        });
+      }
+
+      boardGrid.appendChild(cell);
+    }
   }
 }
 
 function renderRack(rack: RackTile[], game: GameState): void {
-  if (!rackContainer) {
-    return;
-  }
-
+  if (!rackContainer) return;
   rackContainer.replaceChildren();
 
-  if (rack.length === 0) {
-    const message = document.createElement("p");
-    message.textContent = "No tiles in your rack yet.";
-    rackContainer.appendChild(message);
-    return;
-  }
-
   const isMyTurn = game.current_turn_user_id === currentUserId;
+  const placedIds = new Set(pendingPlacements.map((p) => p.player_tile_id));
 
   for (const tile of rack) {
+    if (placedIds.has(tile.id)) continue;
+
     const button = document.createElement("button");
     button.type = "button";
     button.className = "rack-tile";
+    if (selectedRackTileId === tile.id) button.classList.add("selected");
     button.dataset.playerTileId = String(tile.id);
     button.disabled = !isMyTurn;
 
     const letter = document.createElement("strong");
     letter.textContent = tile.letter;
-
     const score = document.createElement("small");
     score.textContent = ` (${String(tile.score)})`;
 
     button.append(letter, score);
+    button.addEventListener("click", () => {
+      selectedRackTileId = selectedRackTileId === tile.id ? null : tile.id;
+      renderRack(currentRack, currentGame!);
+    });
+
     rackContainer.appendChild(button);
   }
 }
 
+function handleBoardClick(row: number, col: number): void {
+  if (selectedRackTileId === null) return;
+  if (!currentGame || currentGame.current_turn_user_id !== currentUserId) return;
+
+  const tile = currentRack.find((t) => t.id === selectedRackTileId);
+  if (!tile) return;
+
+  if (currentGame.board.some((t) => t.row === row && t.col === col)) return;
+  if (pendingPlacements.some((p) => p.row === row && p.col === col)) return;
+
+  pendingPlacements.push({
+    player_tile_id: tile.id,
+    letter: tile.letter,
+    score: tile.score,
+    row,
+    col,
+  });
+
+  selectedRackTileId = null;
+  renderBoard(currentGame.board);
+  renderRack(currentRack, currentGame);
+  updateActionButtons();
+}
+
+function removePending(row: number, col: number): void {
+  pendingPlacements = pendingPlacements.filter((p) => !(p.row === row && p.col === col));
+  if (currentGame) {
+    renderBoard(currentGame.board);
+    renderRack(currentRack, currentGame);
+  }
+  updateActionButtons();
+}
+
+function updateActionButtons(): void {
+  const isMyTurn = currentGame?.current_turn_user_id === currentUserId;
+  if (submitBtn) submitBtn.disabled = !isMyTurn || pendingPlacements.length === 0;
+  if (clearBtn) clearBtn.disabled = pendingPlacements.length === 0;
+  if (passBtn) passBtn.disabled = !isMyTurn;
+}
+
 function renderGame(game: GameState, rack: RackTile[]): void {
-  if (gameStatus) {
-    gameStatus.textContent = game.status;
-  }
+  currentGame = game;
+  currentRack = rack;
 
-  if (tilesRemaining) {
-    tilesRemaining.textContent = String(game.tiles_remaining);
-  }
-
+  if (gameStatus) gameStatus.textContent = game.status;
+  if (tilesRemaining) tilesRemaining.textContent = String(game.tiles_remaining);
   if (turnIndicator) {
-    turnIndicator.textContent =
-      game.current_turn_user_id === null ? "—" : String(game.current_turn_user_id);
+    const turnPlayer = game.players.find((p) => p.user_id === game.current_turn_user_id);
+    turnIndicator.textContent = turnPlayer ? turnPlayer.email : "\u2014";
   }
 
   renderPlayers(game.players);
   renderBoard(game.board);
   renderRack(rack, game);
-
-  setStatus("Live game state updated.");
+  updateActionButtons();
+  setStatus(game.current_turn_user_id === currentUserId ? "Your turn!" : "Waiting for opponent...");
 }
 
 async function loadGameState(): Promise<void> {
-  if (!gameId) {
-    return;
-  }
-
+  if (!gameId) return;
   const response = await fetch(`/games/${gameId}/state`);
   const data = (await response.json()) as GameStateResponse;
-
   if (!response.ok || !data.ok || !data.game) {
     setStatus(data.error ?? "Failed to load game state.");
     return;
   }
-
   renderGame(data.game, data.rack ?? []);
 }
 
-async function playTile(playerTileId: string): Promise<void> {
-  if (!gameId) {
-    return;
-  }
+async function submitWord(): Promise<void> {
+  if (!gameId || pendingPlacements.length === 0) return;
+  setStatus("Submitting word...");
 
-  setStatus("Playing tile...");
-
-  const body = new URLSearchParams();
-  body.set("player_tile_id", playerTileId);
+  const placements = pendingPlacements.map((p) => ({
+    player_tile_id: p.player_tile_id,
+    row: p.row,
+    col: p.col,
+  }));
 
   const response = await fetch(`/games/${gameId}/play`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ placements }),
   });
 
   const data = (await response.json()) as { ok: boolean; error?: string };
-
   if (!response.ok || !data.ok) {
-    setStatus(data.error ?? "Failed to play tile.");
+    setStatus(data.error ?? "Failed to play word.");
     return;
   }
 
+  pendingPlacements = [];
+  selectedRackTileId = null;
   await loadGameState();
 }
 
-function connectToSse(): void {
-  if (!gameId) {
+async function doPassTurn(): Promise<void> {
+  if (!gameId) return;
+  setStatus("Passing turn...");
+
+  const response = await fetch(`/games/${gameId}/pass`, { method: "POST" });
+  const data = (await response.json()) as { ok: boolean; error?: string };
+  if (!response.ok || !data.ok) {
+    setStatus(data.error ?? "Failed to pass turn.");
     return;
   }
 
+  pendingPlacements = [];
+  selectedRackTileId = null;
+  await loadGameState();
+}
+
+function clearPlacements(): void {
+  pendingPlacements = [];
+  selectedRackTileId = null;
+  if (currentGame) {
+    renderBoard(currentGame.board);
+    renderRack(currentRack, currentGame);
+  }
+  updateActionButtons();
+}
+
+function connectToSse(): void {
+  if (!gameId) return;
   const source = new EventSource(`/api/sse?room=${encodeURIComponent(`game-${gameId}`)}`);
 
   source.addEventListener("open", (): void => {
-    setStatus("SSE connected. Waiting for game updates...");
+    setStatus("Connected. Waiting for updates...");
   });
 
   source.addEventListener("game:updated", (): void => {
+    pendingPlacements = [];
+    selectedRackTileId = null;
     void loadGameState();
   });
 
   source.onerror = (): void => {
-    setStatus("SSE disconnected. Browser will retry automatically.");
+    setStatus("Connection lost. Reconnecting...");
   };
 
   window.addEventListener("beforeunload", (): void => {
@@ -212,36 +316,14 @@ function connectToSse(): void {
   });
 }
 
-function setupRackClickHandler(): void {
-  if (!rackContainer) {
-    return;
-  }
-
-  rackContainer.addEventListener("click", (event): void => {
-    const target = event.target;
-
-    if (!(target instanceof Element)) {
-      return;
-    }
-
-    const button = target.closest(".rack-tile");
-
-    if (!(button instanceof HTMLButtonElement)) {
-      return;
-    }
-
-    const playerTileId = button.dataset.playerTileId;
-
-    if (!playerTileId || button.disabled) {
-      return;
-    }
-
-    void playTile(playerTileId);
-  });
+function setupControls(): void {
+  submitBtn?.addEventListener("click", () => void submitWord());
+  clearBtn?.addEventListener("click", clearPlacements);
+  passBtn?.addEventListener("click", () => void doPassTurn());
 }
 
 async function init(): Promise<void> {
-  setupRackClickHandler();
+  setupControls();
   await loadGameState();
   connectToSse();
 }

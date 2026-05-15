@@ -35,8 +35,8 @@
     <section class="card">
       <h2>Status: <span id="game-status"><%= game.status %></span></h2>
       <p>Tiles remaining in bag: <span id="tiles-remaining"><%= game.tiles_remaining %></span></p>
-      <p>Whose turn: <span id="turn-indicator">
-        <%= game.current_turn_user_id ? game.current_turn_user_id : "—" %>
+      <p>Turn: <span id="turn-indicator">
+        <%= game.current_turn_user_id ? game.current_turn_user_id : "\u2014" %>
       </span></p>
     </section>
 
@@ -45,7 +45,7 @@
       <ul id="players-list">
         <% game.players.forEach(function(p) { %>
           <li data-user-id="<%= p.user_id %>">
-            <%= p.email %> — score: <span class="player-score"><%= p.score %></span>
+            <%= p.email %> &mdash; <span class="player-score"><%= p.score %></span> pts
           </li>
         <% }); %>
       </ul>
@@ -74,31 +74,19 @@
     </section>
 
     <section class="card">
-      <h2>Board (row 7)</h2>
-      <ol id="board-list">
-        <% game.board.forEach(function(t) { %>
-          <li>
-            (<%= t.row %>, <%= t.col %>) <strong><%= t.letter %></strong> (<%= t.score %>)
-          </li>
-        <% }); %>
-      </ol>
+      <h2>Board</h2>
+      <div id="board-grid" class="board-grid"></div>
     </section>
 
     <section class="card">
       <h2>Your Rack</h2>
-      <div id="rack" data-rack='<%- JSON.stringify(rack) %>'>
-        <% rack.forEach(function(tile) { %>
-          <button
-            class="rack-tile"
-            data-player-tile-id="<%= tile.id %>"
-            <%= game.current_turn_user_id === user.id ? "" : "disabled" %>
-          >
-            <strong><%= tile.letter %></strong>
-            <small>(<%= tile.score %>)</small>
-          </button>
-        <% }); %>
+      <div id="rack"></div>
+      <div class="game-actions">
+        <button id="submit-word" disabled>Submit Word</button>
+        <button id="clear-placements" disabled>Clear</button>
+        <button id="pass-turn" disabled>Pass Turn</button>
       </div>
-      <p><small>Click a tile to play it. Only enabled on your turn.</small></p>
+      <p><small>Select a tile from your rack, then click a board cell to place it. Click a green pending tile to remove it.</small></p>
     </section>
   </main>
 </body>

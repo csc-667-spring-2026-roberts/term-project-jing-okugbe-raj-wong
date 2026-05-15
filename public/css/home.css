@@ -36,3 +36,94 @@ button {
 nav form {
     display: inline;
 }
+
+.card {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.board-grid {
+    display: grid;
+    grid-template-columns: repeat(15, 1fr);
+    gap: 1px;
+    width: min(100%, 570px);
+    margin: 0.5rem 0;
+    background: #6b6b6b;
+    border: 2px solid #6b6b6b;
+}
+
+.board-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e8dcc8;
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+    min-width: 0;
+}
+
+.board-cell .cell-letter {
+    font-weight: bold;
+    font-size: 0.85rem;
+}
+
+.board-cell .cell-score {
+    font-size: 0.5rem;
+    position: absolute;
+    bottom: 1px;
+    right: 2px;
+}
+
+.board-cell.occupied {
+    background: #d4b896;
+    cursor: default;
+}
+
+.board-cell.pending {
+    background: #8fbc8f;
+    cursor: pointer;
+}
+
+.board-cell.center {
+    background: #d4849a;
+}
+
+.board-cell.center::after {
+    content: "\u2605";
+    font-size: 0.7rem;
+    color: #a0506a;
+}
+
+.rack-tile {
+    padding: 0.5rem 0.75rem;
+    margin: 0.15rem;
+    cursor: pointer;
+    border: 2px solid #999;
+    background: #f5e6c8;
+    font-size: 1rem;
+    border-radius: 4px;
+}
+
+.rack-tile.selected {
+    border-color: #2196f3;
+    background: #bbdefb;
+    box-shadow: 0 0 6px #2196f3;
+}
+
+.rack-tile:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.game-actions {
+    margin: 0.75rem 0;
+}
+
+.game-actions button {
+    margin-right: 0.5rem;
+    padding: 0.5rem 1rem;
+}

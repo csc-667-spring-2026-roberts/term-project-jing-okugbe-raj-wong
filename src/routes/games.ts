@@ -1,14 +1,24 @@
-import { Router } from "express";
+import { Router, Request } from "express";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { broadcastToRoom } from "../sse.js";
 import {
   createGame,
   joinGame,
   startGame,
-  playTile,
+  playWord,
+  passTurn,
   getGameState,
   getPlayerRack,
 } from "../db/games.js";
+
+interface SessionRequest extends Request {
+  session?: {
+    user?: {
+      id: number;
+      email: string;
+    };
+  };
+}
 
 const router = Router();
 
@@ -94,7 +104,6 @@ router.post("/:id/start", requireAuth, async (request, response) => {
     response.redirect(`/games/${String(gameId)}?error=${encodeURIComponent(message)}`);
   }
 });
-
 router.post("/:id/play", requireAuth, async (request, response) => {
   try {
     const user = request.session.user;
@@ -103,19 +112,50 @@ router.post("/:id/play", requireAuth, async (request, response) => {
       return;
     }
     const gameId = Number(request.params.id);
-    const body = request.body as { player_tile_id?: unknown };
-    const playerTileId = Number(body.player_tile_id);
-    if (!Number.isFinite(playerTileId)) {
-      response.status(400).json({ ok: false, error: "player_tile_id required" });
+    const body = request.body as { placements?: unknown };
+
+    if (!Array.isArray(body.placements) || body.placements.length === 0) {
+      response.status(400).json({ ok: false, error: "placements array required" });
       return;
     }
 
-    await playTile(gameId, user.id, playerTileId);
+    const placements = (body.placements as { player_tile_id: unknown; row: unknown; col: unknown }[]).map((p) => ({
+      player_tile_id: Number(p.player_tile_id),
+      row: Number(p.row),
+      col: Number(p.col),
+    }));
+
+    for (const p of placements) {
+      if (!Number.isFinite(p.player_tile_id) || !Number.isFinite(p.row) || !Number.isFinite(p.col)) {
+        response.status(400).json({ ok: false, error: "Invalid placement data" });
+        return;
+      }
+    }
+
+    await playWord(gameId, user.id, placements);
     const state = await getGameState(gameId);
     broadcastToRoom(`game-${String(gameId)}`, "game:updated", state);
     response.json({ ok: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to play tile";
+    const message = error instanceof Error ? error.message : "Failed to play word";
+    response.status(400).json({ ok: false, error: message });
+  }
+});
+
+router.post("/:id/pass", requireAuth, async (request, response) => {
+  try {
+    const user = request.session.user;
+    if (!user) {
+      response.status(401).json({ ok: false, error: "Not logged in" });
+      return;
+    }
+    const gameId = Number(request.params.id);
+    await passTurn(gameId, user.id);
+    const state = await getGameState(gameId);
+    broadcastToRoom(`game-${String(gameId)}`, "game:updated", state);
+    response.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to pass turn";
     response.status(400).json({ ok: false, error: message });
   }
 });
